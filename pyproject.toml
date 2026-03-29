@@ -1,0 +1,28 @@
+[tool.poetry]
+name = "contentmesh"
+version = "2.0.0"
+description = "AI Multi-Agent Enterprise Content Pipeline — powered by Groq"
+authors = ["ContentMesh Team"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.13"
+crewai = {extras = ["tools"], version = ">=0.80.0,<1.0.0"}
+fastapi = ">=0.111.0"
+uvicorn = ">=0.30.0"
+groq = ">=0.9.0"
+python-dotenv = ">=1.0.0"
+pydantic = ">=2.7.0"
+httpx = ">=0.27.0"
+sse-starlette = ">=2.1.0"
+
+[tool.poetry.scripts]
+contentmesh     = "contentmesh.main:run"
+contentmesh-api = "app:app"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.crewai]
+type = "crew"

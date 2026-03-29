@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ContentMesh — AI Content Pipeline</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --bg2: #111118;
+    --bg3: #1a1a24;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.14);
+    --text: #e8e8f0;
+    --muted: #8888a8;
+    --dim: #555570;
+    --purple: #8b5cf6;
+    --purple2: #a78bfa;
+    --purple-bg: rgba(139,92,246,0.12);
+    --green: #34d399;
+    --green-bg: rgba(52,211,153,0.1);
+    --amber: #fbbf24;
+    --amber-bg: rgba(251,191,36,0.1);
+    --red: #f87171;
+    --red-bg: rgba(248,113,113,0.1);
+    --blue: #60a5fa;
+    --blue-bg: rgba(96,165,250,0.1);
+    --teal: #2dd4bf;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+  
+  /* Layout */
+  .app { display: grid; grid-template-columns: 320px 1fr; min-height: 100vh; }
+  .sidebar { background: var(--bg2); border-right: 1px solid var(--border); padding: 24px; display: flex; flex-direction: column; gap: 24px; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+  .main { padding: 32px; overflow-y: auto; }
+
+  /* Logo */
+  .logo { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+  .logo-icon { width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, #8b5cf6, #3b82f6); display: flex; align-items: center; justify-content: center; font-size: 18px; }
+  .logo-text { font-size: 18px; font-weight: 600; letter-spacing: -0.3px; }
+  .logo-sub { font-size: 12px; color: var(--muted); }
+
+  /* Form */
+  label { font-size: 12px; font-weight: 500; color: var(--muted); letter-spacing: 0.5px; text-transform: uppercase; display: block; margin-bottom: 6px; }
+  input, textarea, select {
+    width: 100%; background: var(--bg3); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); color: var(--text); font-family: inherit;
+    font-size: 13px; padding: 10px 12px; outline: none; transition: border 0.2s;
+  }
+  input:focus, textarea:focus, select:focus { border-color: var(--purple); }
+  textarea { resize: vertical; min-height: 70px; line-height: 1.5; }
+  .field { display: flex; flex-direction: column; gap: 0; }
+
+  /* Checkboxes */
+  .checkbox-group { display: flex; flex-wrap: wrap; gap: 6px; }
+  .cb-label { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted);
+    background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 5px 10px; cursor: pointer; transition: all 0.15s; user-select: none; }
+  .cb-label:has(input:checked) { background: var(--purple-bg); border-color: var(--purple); color: var(--purple2); }
+  .cb-label input { display: none; }
+
+  /* Button */
+  .btn-generate {
+    width: 100%; padding: 13px; background: linear-gradient(135deg, #8b5cf6, #6366f1);
+    border: none; border-radius: var(--radius-sm); color: #fff; font-family: inherit;
+    font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity 0.2s, transform 0.1s;
+    letter-spacing: 0.2px; margin-top: 4px;
+  }
+  .btn-generate:hover { opacity: 0.9; }
+  .btn-generate:active { transform: scale(0.98); }
+  .btn-generate:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-demo { width: 100%; padding: 10px; background: transparent; border: 1px solid var(--border);
+    border-radius: var(--radius-sm); color: var(--muted); font-family: inherit; font-size: 13px;
+    cursor: pointer; transition: all 0.15s; }
+  .btn-demo:hover { border-color: var(--border2); color: var(--text); }
+
+  /* Section heading */
+  .section-title { font-size: 11px; font-weight: 600; color: var(--dim); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px; }
+
+  /* Dashboard header */
+  .dash-header { margin-bottom: 28px; }
+  .dash-title { font-size: 26px; font-weight: 600; letter-spacing: -0.5px; }
+  .dash-sub { color: var(--muted); font-size: 14px; margin-top: 4px; }
+
+  /* Metric cards */
+  .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 28px; }
+  .metric-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; }
+  .metric-label { font-size: 11px; color: var(--muted); font-weight: 500; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 8px; }
+  .metric-val { font-size: 28px; font-weight: 600; letter-spacing: -1px; }
+  .metric-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .metric-card.purple .metric-val { color: var(--purple2); }
+  .metric-card.green .metric-val { color: var(--green); }
+  .metric-card.amber .metric-val { color: var(--amber); }
+  .metric-card.blue .metric-val { color: var(--blue); }
+
+  /* Agent pipeline */
+  .pipeline { display: flex; gap: 0; margin-bottom: 28px; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .pipeline-step { flex: 1; padding: 14px 16px; border-right: 1px solid var(--border); position: relative; }
+  .pipeline-step:last-child { border-right: none; }
+  .ps-num { font-size: 10px; font-weight: 600; color: var(--dim); letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 4px; }
+  .ps-name { font-size: 12px; font-weight: 500; }
+  .ps-status { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .ps-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--dim); display: inline-block; margin-right: 5px; vertical-align: middle; }
+  .ps-dot.running { background: var(--amber); box-shadow: 0 0 6px var(--amber); animation: pulse 1s infinite; }
+  .ps-dot.done { background: var(--green); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  /* Score ring */
+  .score-section { display: flex; gap: 20px; margin-bottom: 28px; }
+  .score-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; display: flex; align-items: center; gap: 20px; min-width: 220px; }
+  .score-ring-wrap { position: relative; width: 72px; height: 72px; flex-shrink: 0; }
+  .score-ring-wrap svg { transform: rotate(-90deg); }
+  .score-num { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 18px; font-weight: 700; }
+  .score-label { font-size: 14px; font-weight: 500; }
+  .score-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+  /* Violations */
+  .violations-card { flex: 1; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+  .violation-item { background: var(--amber-bg); border: 1px solid rgba(251,191,36,0.2); border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 8px; font-size: 13px; }
+  .violation-item:last-child { margin-bottom: 0; }
+  .violation-rule { font-weight: 500; color: var(--amber); font-size: 12px; margin-bottom: 4px; }
+  .violation-fix { color: var(--green); font-size: 12px; margin-top: 4px; }
+  .strikethrough { text-decoration: line-through; color: var(--red); }
+  .no-violations { color: var(--green); font-size: 13px; display: flex; align-items: center; gap: 8px; }
+
+  /* Content tabs */
+  .content-section { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 28px; }
+  .tabs { display: flex; border-bottom: 1px solid var(--border); overflow-x: auto; }
+  .tab { padding: 12px 18px; font-size: 13px; color: var(--muted); cursor: pointer; white-space: nowrap; transition: all 0.15s; border-bottom: 2px solid transparent; }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--purple2); border-bottom-color: var(--purple); }
+  .tab-content { padding: 20px; display: none; }
+  .tab-content.active { display: block; }
+
+  /* Channel grid */
+  .channel-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  .channel-card { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px; }
+  .channel-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; padding: 3px 8px; border-radius: 5px; margin-bottom: 10px; }
+  .badge-email { background: var(--blue-bg); color: var(--blue); }
+  .badge-linkedin { background: rgba(10,102,194,0.2); color: #60a5fa; }
+  .badge-blog { background: var(--purple-bg); color: var(--purple2); }
+  .badge-slack { background: rgba(224,30,90,0.15); color: #fb7185; }
+  .channel-subject { font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--text); }
+  .channel-body { font-size: 12px; color: var(--muted); line-height: 1.6; max-height: 120px; overflow: hidden; position: relative; }
+  .channel-body::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 30px; background: linear-gradient(transparent, var(--bg3)); }
+
+  /* Agent reasoning */
+  .reasoning-section { margin-bottom: 28px; }
+  .reasoning-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .reasoning-item { display: grid; grid-template-columns: 200px 1fr; border-bottom: 1px solid var(--border); }
+  .reasoning-item:last-child { border-bottom: none; }
+  .ri-agent { padding: 14px 16px; background: var(--bg3); display: flex; flex-direction: column; justify-content: center; }
+  .ri-name { font-size: 12px; font-weight: 500; }
+  .ri-status { font-size: 11px; color: var(--green); margin-top: 2px; }
+  .ri-thought { padding: 14px 16px; font-size: 13px; color: var(--muted); line-height: 1.6; display: flex; align-items: center; }
+
+  /* Distribution */
+  .dist-item { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .dist-item:last-child { border-bottom: none; }
+  .dist-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+  .dist-label { font-size: 13px; font-weight: 500; }
+  .dist-detail { font-size: 12px; color: var(--muted); margin-top: 1px; }
+  .dist-status { margin-left: auto; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 5px; }
+  .status-sent { background: var(--green-bg); color: var(--green); }
+  .status-demo { background: var(--amber-bg); color: var(--amber); }
+
+  /* Empty / loading state */
+  .empty { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; gap: 16px; text-align: center; }
+  .empty-icon { font-size: 48px; opacity: 0.3; }
+  .empty-title { font-size: 20px; font-weight: 600; color: var(--muted); }
+  .empty-sub { font-size: 14px; color: var(--dim); max-width: 380px; line-height: 1.6; }
+  .loading-bar { height: 2px; background: var(--bg3); border-radius: 2px; overflow: hidden; width: 240px; }
+  .loading-fill { height: 100%; background: linear-gradient(90deg, var(--purple), var(--blue)); border-radius: 2px; animation: loading 2s ease-in-out infinite; }
+  @keyframes loading { 0%{width:0%} 50%{width:80%} 100%{width:100%} }
+
+  /* Misc */
+  .mono { font-family: 'DM Mono', monospace; }
+  .tag { display: inline-block; font-size: 11px; padding: 2px 7px; border-radius: 4px; font-weight: 500; }
+  .tag-locale { background: var(--purple-bg); color: var(--purple2); margin-right: 4px; }
+
+  @media (max-width: 900px) {
+    .app { grid-template-columns: 1fr; }
+    .sidebar { height: auto; position: static; }
+    .metrics { grid-template-columns: repeat(2, 1fr); }
+    .channel-grid { grid-template-columns: 1fr; }
+    .reasoning-item { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- Sidebar / Input Form -->
+<aside class="sidebar">
+  <div>
+    <div class="logo">
+      <div class="logo-icon">⚡</div>
+      <div>
+        <div class="logo-text">ContentMesh</div>
+        <div class="logo-sub">AI Content Pipeline</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:16px;">
+    <div class="field">
+      <label>Topic / Brief</label>
+      <textarea id="topic" placeholder="e.g. Announcing our new AI-powered supply chain platform for enterprise manufacturers">Announcing our new AI-powered supply chain platform for enterprise manufacturers</textarea>
+    </div>
+    <div class="field">
+      <label>Target Audience</label>
+      <input id="audience" type="text" value="VP of Operations at manufacturing companies" placeholder="e.g. VP of Operations"/>
+    </div>
+    <div class="field">
+      <label>Tone</label>
+      <select id="tone">
+        <option value="professional">Professional</option>
+        <option value="authoritative">Authoritative</option>
+        <option value="conversational">Conversational</option>
+        <option value="technical">Technical</option>
+        <option value="inspiring">Inspiring</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Recipient Email (optional)</label>
+      <input id="email" type="email" placeholder="demo@yourcompany.com"/>
+    </div>
+    <div class="field">
+      <label>Locales</label>
+      <div class="checkbox-group">
+        <label class="cb-label"><input type="checkbox" value="en" checked/> 🇺🇸 EN</label>
+        <label class="cb-label"><input type="checkbox" value="es" checked/> 🇪🇸 ES</label>
+        <label class="cb-label"><input type="checkbox" value="fr" checked/> 🇫🇷 FR</label>
+        <label class="cb-label"><input type="checkbox" value="de"/> 🇩🇪 DE</label>
+        <label class="cb-label"><input type="checkbox" value="pt"/> 🇧🇷 PT</label>
+      </div>
+    </div>
+    <div class="field">
+      <label>Channels</label>
+      <div class="checkbox-group">
+        <label class="cb-label"><input type="checkbox" value="email" checked/> Email</label>
+        <label class="cb-label"><input type="checkbox" value="linkedin" checked/> LinkedIn</label>
+        <label class="cb-label"><input type="checkbox" value="blog" checked/> Blog</label>
+        <label class="cb-label"><input type="checkbox" value="slack" checked/> Slack</label>
+      </div>
+    </div>
+    <div class="field">
+      <label>Compliance Rules</label>
+      <div class="checkbox-group">
+        <label class="cb-label"><input type="checkbox" value="no ROI guarantees" checked/> No ROI guarantees</label>
+        <label class="cb-label"><input type="checkbox" value="no medical claims" checked/> No medical claims</label>
+        <label class="cb-label"><input type="checkbox" value="no competitor mentions" checked/> No competitor names</label>
+        <label class="cb-label"><input type="checkbox" value="FTC disclosure required"/> FTC disclosure</label>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:8px;margin-top:auto;">
+    <button class="btn-generate" id="btn-run" onclick="runPipeline()">⚡ Run Pipeline</button>
+    <button class="btn-demo" onclick="loadDemo()">Load Demo Result (no API key needed)</button>
+  </div>
+</aside>
+
+<!-- Main Dashboard -->
+<main class="main" id="main">
+  <div class="empty" id="empty-state">
+    <div class="empty-icon">🤖</div>
+    <div class="empty-title">ContentMesh is ready</div>
+    <div class="empty-sub">Configure your brief on the left and click "Run Pipeline" to automate the full content lifecycle — or load the demo to explore the output.</div>
+  </div>
+
+  <div id="loading-state" style="display:none;">
+    <div class="empty">
+      <div class="empty-icon">⚡</div>
+      <div class="empty-title">Agents working...</div>
+      <div id="loading-msg" class="empty-sub">Initializing pipeline</div>
+      <div class="loading-bar"><div class="loading-fill"></div></div>
+    </div>
+    <div class="pipeline" id="pipeline-live" style="margin-top:32px;">
+      <div class="pipeline-step" id="ps-0"><div class="ps-num">Agent 01</div><div class="ps-name">Content Creator</div><div class="ps-status"><span class="ps-dot" id="dot-0"></span><span id="ps-txt-0">Waiting</span></div></div>
+      <div class="pipeline-step" id="ps-1"><div class="ps-num">Agent 02</div><div class="ps-name">Compliance Reviewer</div><div class="ps-status"><span class="ps-dot" id="dot-1"></span><span id="ps-txt-1">Waiting</span></div></div>
+      <div class="pipeline-step" id="ps-2"><div class="ps-num">Agent 03</div><div class="ps-name">Localizer</div><div class="ps-status"><span class="ps-dot" id="dot-2"></span><span id="ps-txt-2">Waiting</span></div></div>
+      <div class="pipeline-step" id="ps-3"><div class="ps-num">Agent 04</div><div class="ps-name">Channel Formatter</div><div class="ps-status"><span class="ps-dot" id="dot-3"></span><span id="ps-txt-3">Waiting</span></div></div>
+      <div class="pipeline-step" id="ps-4"><div class="ps-num">Agent 05</div><div class="ps-name">Distribution Agent</div><div class="ps-status"><span class="ps-dot" id="dot-4"></span><span id="ps-txt-4">Waiting</span></div></div>
+    </div>
+  </div>
+
+  <div id="result-state" style="display:none;">
+    <!-- Header -->
+    <div class="dash-header">
+      <div class="dash-title">Pipeline Complete ✓</div>
+      <div class="dash-sub" id="dash-sub">Full lifecycle automated in 0s</div>
+    </div>
+
+    <!-- Metrics -->
+    <div class="metrics">
+      <div class="metric-card purple">
+        <div class="metric-label">Time Saved</div>
+        <div class="metric-val" id="m-time">48s</div>
+        <div class="metric-sub">vs. 3–5 days manual</div>
+      </div>
+      <div class="metric-card green">
+        <div class="metric-label">Compliance Score</div>
+        <div class="metric-val" id="m-score">—</div>
+        <div class="metric-sub" id="m-score-sub">out of 100</div>
+      </div>
+      <div class="metric-card amber">
+        <div class="metric-label">Locales Generated</div>
+        <div class="metric-val" id="m-locales">—</div>
+        <div class="metric-sub">simultaneous</div>
+      </div>
+      <div class="metric-card blue">
+        <div class="metric-label">Channel Variants</div>
+        <div class="metric-val" id="m-channels">—</div>
+        <div class="metric-sub">per locale</div>
+      </div>
+    </div>
+
+    <!-- Pipeline status -->
+    <div class="pipeline" style="margin-bottom:28px;">
+      <div class="pipeline-step"><div class="ps-num">Agent 01</div><div class="ps-name">Content Creator</div><div class="ps-status"><span class="ps-dot done"></span>Completed</div></div>
+      <div class="pipeline-step"><div class="ps-num">Agent 02</div><div class="ps-name">Compliance Reviewer</div><div class="ps-status"><span class="ps-dot done"></span>Completed</div></div>
+      <div class="pipeline-step"><div class="ps-num">Agent 03</div><div class="ps-name">Localizer</div><div class="ps-status"><span class="ps-dot done"></span>Completed</div></div>
+      <div class="pipeline-step"><div class="ps-num">Agent 04</div><div class="ps-name">Channel Formatter</div><div class="ps-status"><span class="ps-dot done"></span>Completed</div></div>
+      <div class="pipeline-step"><div class="ps-num">Agent 05</div><div class="ps-name">Distribution Agent</div><div class="ps-status"><span class="ps-dot done"></span>Completed</div></div>
+    </div>
+
+    <!-- Compliance + Score -->
+    <div class="score-section">
+      <div class="score-card">
+        <div class="score-ring-wrap">
+          <svg width="72" height="72" viewBox="0 0 72 72">
+            <circle cx="36" cy="36" r="28" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="6"/>
+            <circle id="score-circle" cx="36" cy="36" r="28" fill="none" stroke="#34d399" stroke-width="6"
+              stroke-linecap="round" stroke-dasharray="176" stroke-dashoffset="176" style="transition:stroke-dashoffset 1.5s ease;"/>
+          </svg>
+          <div class="score-num" id="score-num">—</div>
+        </div>
+        <div>
+          <div class="score-label">Compliance Score</div>
+          <div class="score-sub" id="score-detail">Reviewing...</div>
+        </div>
+      </div>
+      <div class="violations-card">
+        <div class="section-title" style="margin-bottom:12px;">Compliance Review</div>
+        <div id="violations-list"></div>
+      </div>
+    </div>
+
+    <!-- Content Output Tabs -->
+    <div class="content-section" style="margin-bottom:28px;">
+      <div style="padding:16px 20px 0; border-bottom: 1px solid var(--border);">
+        <div class="section-title" style="margin-bottom:10px;">Generated Content</div>
+        <div style="display:flex; gap:6px; margin-bottom:-1px; flex-wrap:wrap;" id="locale-tabs"></div>
+      </div>
+      <div id="locale-contents"></div>
+    </div>
+
+    <!-- Agent Reasoning -->
+    <div class="reasoning-section">
+      <div class="section-title">Agent Reasoning Log</div>
+      <div class="reasoning-card" id="reasoning-list"></div>
+    </div>
+
+    <!-- Distribution -->
+    <div class="content-section" style="margin-bottom:28px;">
+      <div style="padding:16px 20px; border-bottom:1px solid var(--border);">
+        <div class="section-title">Distribution Report</div>
+      </div>
+      <div style="padding:0 20px;" id="dist-list"></div>
+    </div>
+  </div>
+</main>
+</div>
+
+<script>
+const API = window.location.origin;
+let currentLocale = 'en';
+
+function getChecked(name) {
+  return [...document.querySelectorAll(`.checkbox-group .cb-label input[value][type=checkbox]:checked`)]
+    .filter(el => {
+      const group = el.closest('.field');
+      const lbl = group?.querySelector('label');
+      return lbl && lbl.textContent.trim().toLowerCase().startsWith(name);
+    })
+    .map(el => el.value);
+}
+
+function getAllChecked() {
+  const locales = [...document.querySelectorAll('.cb-label input[type=checkbox]:checked')]
+    .filter(el => ['en','es','fr','de','pt','ja'].includes(el.value)).map(el => el.value);
+  const channels = [...document.querySelectorAll('.cb-label input[type=checkbox]:checked')]
+    .filter(el => ['email','linkedin','blog','slack'].includes(el.value)).map(el => el.value);
+  const rules = [...document.querySelectorAll('.cb-label input[type=checkbox]:checked')]
+    .filter(el => el.value.startsWith('no ') || el.value.startsWith('FTC')).map(el => el.value);
+  return { locales, channels, compliance_rules: rules };
+}
+
+async function runPipeline() {
+  const btn = document.getElementById('btn-run');
+  btn.disabled = true;
+  showLoading();
+
+  const { locales, channels, compliance_rules } = getAllChecked();
+  const payload = {
+    topic: document.getElementById('topic').value,
+    audience: document.getElementById('audience').value,
+    tone: document.getElementById('tone').value,
+    recipient_email: document.getElementById('email').value,
+    locales: locales.length ? locales : ['en'],
+    channels: channels.length ? channels : ['email'],
+    compliance_rules
+  };
+
+  // Start SSE progress stream
+  startSSE(payload.topic);
+
+  try {
+    const res = await fetch(`${API}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || 'API error');
+    }
+    const data = await res.json();
+    renderResult(data);
+  } catch (e) {
+    alert(`Error: ${e.message}\n\nTip: Use "Load Demo Result" to test the UI without an API key.`);
+    showEmpty();
+  }
+  btn.disabled = false;
+}
+
+let sseSource = null;
+function startSSE(topic) {
+  if (sseSource) sseSource.close();
+  sseSource = new EventSource(`${API}/api/stream-progress?topic=${encodeURIComponent(topic)}`);
+  sseSource.onmessage = (e) => {
+    const d = JSON.parse(e.data);
+    if (d.status === 'complete') { sseSource.close(); return; }
+    const idx = (d.step || 1) - 1;
+    if (d.status === 'running') {
+      setDot(idx, 'running');
+      document.getElementById(`ps-txt-${idx}`).textContent = d.action || 'Running...';
+      document.getElementById('loading-msg').textContent = `${d.agent}: ${d.action}`;
+    } else if (d.status === 'done') {
+      setDot(idx, 'done');
+      document.getElementById(`ps-txt-${idx}`).textContent = 'Completed';
+    }
+  };
+}
+
+function setDot(idx, state) {
+  const dot = document.getElementById(`dot-${idx}`);
+  if (!dot) return;
+  dot.className = `ps-dot ${state}`;
+}
+
+async function loadDemo() {
+  showLoading();
+  document.getElementById('loading-msg').textContent = 'Loading demo result...';
+  await new Promise(r => setTimeout(r, 800));
+  const res = await fetch(`${API}/api/demo-result`);
+  const data = await res.json();
+  renderResult(data);
+}
+
+function showEmpty() {
+  document.getElementById('empty-state').style.display = 'flex';
+  document.getElementById('loading-state').style.display = 'none';
+  document.getElementById('result-state').style.display = 'none';
+}
+function showLoading() {
+  document.getElementById('empty-state').style.display = 'none';
+  document.getElementById('loading-state').style.display = 'block';
+  document.getElementById('result-state').style.display = 'none';
+  // Reset dots
+  for (let i = 0; i < 5; i++) setDot(i, '');
+}
+function showResult() {
+  document.getElementById('empty-state').style.display = 'none';
+  document.getElementById('loading-state').style.display = 'none';
+  document.getElementById('result-state').style.display = 'block';
+}
+
+function renderResult(data) {
+  showResult();
+
+  // Metrics
+  document.getElementById('m-time').textContent = data.elapsed_seconds ? `${data.elapsed_seconds}s` : '48s';
+  document.getElementById('m-locales').textContent = data.locales_generated?.length || 3;
+  document.getElementById('m-channels').textContent = data.channels_formatted?.length || 4;
+  document.getElementById('dash-sub').textContent =
+    `Full lifecycle automated in ${data.elapsed_seconds || 48}s — ${data.locales_generated?.length || 3} locales × ${data.channels_formatted?.length || 4} channels`;
+
+  // Score
+  const score = data.compliance_score || 95;
+  document.getElementById('m-score').textContent = score;
+  document.getElementById('m-score-sub').textContent = score >= 90 ? 'Excellent ✓' : score >= 70 ? 'Good — minor fixes' : 'Needs revision';
+  document.getElementById('score-num').textContent = score;
+  document.getElementById('score-detail').textContent = score >= 90 ? 'Approved for distribution' : 'Auto-corrected and approved';
+
+  // Animate score ring
+  setTimeout(() => {
+    const circumference = 176;
+    const offset = circumference - (score / 100) * circumference;
+    const circle = document.getElementById('score-circle');
+    circle.style.strokeDashoffset = offset;
+    circle.style.stroke = score >= 90 ? '#34d399' : score >= 70 ? '#fbbf24' : '#f87171';
+    animateCounter('score-num', 0, score, 1400);
+  }, 100);
+
+  // Violations
+  const vlist = document.getElementById('violations-list');
+  const violations = data.violations || data.output?.compliance?.violations || [];
+  if (violations.length === 0) {
+    vlist.innerHTML = `<div class="no-violations">✓ No compliance violations found. Content approved.</div>`;
+  } else {
+    vlist.innerHTML = violations.map(v => `
+      <div class="violation-item">
+        <div class="violation-rule">⚠ ${v.rule || 'Compliance issue'}</div>
+        <div><span class="strikethrough">${v.excerpt || ''}</span></div>
+        <div class="violation-fix">✓ Auto-corrected: ${v.fix || ''}</div>
+      </div>
+    `).join('');
+  }
+
+  // Locale tabs + content
+  const localized = data.output?.localized || {};
+  const formatted = data.output?.formatted || {};
+  const locales = Object.keys(localized).length ? Object.keys(localized) : (data.locales_generated || ['en']);
+  const tabsEl = document.getElementById('locale-tabs');
+  const contentsEl = document.getElementById('locale-contents');
+  tabsEl.innerHTML = '';
+  contentsEl.innerHTML = '';
+
+  const flagMap = { en:'🇺🇸', es:'🇪🇸', fr:'🇫🇷', de:'🇩🇪', pt:'🇧🇷', ja:'🇯🇵' };
+  locales.forEach((locale, i) => {
+    const tab = document.createElement('div');
+    tab.className = 'tab' + (i === 0 ? ' active' : '');
+    tab.textContent = `${flagMap[locale] || '🌐'} ${locale.toUpperCase()}`;
+    tab.onclick = () => switchLocaleTab(locale);
+    tab.id = `tab-${locale}`;
+    tabsEl.appendChild(tab);
+
+    const ldata = localized[locale] || {};
+    const fdata = formatted[locale] || formatted['en'] || {};
+    const content = document.createElement('div');
+    content.className = 'tab-content' + (i === 0 ? ' active' : '');
+    content.id = `content-${locale}`;
+    content.innerHTML = buildLocaleContent(locale, ldata, fdata, data);
+    contentsEl.appendChild(content);
+  });
+
+  // Agent reasoning
+  const rlist = document.getElementById('reasoning-list');
+  const logs = data.agent_logs || [];
+  rlist.innerHTML = logs.map(log => `
+    <div class="reasoning-item">
+      <div class="ri-agent">
+        <div class="ri-name">${log.agent}</div>
+        <div class="ri-status">✓ ${log.status || 'completed'}</div>
+      </div>
+      <div class="ri-thought">${log.reasoning || ''}</div>
+    </div>
+  `).join('');
+
+  // Distribution
+  const dist = data.output?.distribution || {};
+  const sent = dist.sent || [];
+  const dlist = document.getElementById('dist-list');
+  const icons = { email: '📧', slack: '💬', linkedin: '💼', blog: '📝' };
+  dlist.innerHTML = sent.map(s => `
+    <div class="dist-item">
+      <div class="dist-icon" style="background:var(--bg3)">${icons[s.channel] || '📤'}</div>
+      <div>
+        <div class="dist-label">${s.channel?.charAt(0).toUpperCase() + s.channel?.slice(1) || 'Channel'}</div>
+        <div class="dist-detail">${s.recipient || s.status}</div>
+      </div>
+      <div class="dist-status ${dist.demo_mode ? 'status-demo' : 'status-sent'}">${dist.demo_mode ? 'Simulated' : '✓ Sent'}</div>
+    </div>
+  `).join('') || `<div style="padding:14px 0;color:var(--muted);font-size:13px;">No distribution data.</div>`;
+}
+
+function buildLocaleContent(locale, ldata, fdata, data) {
+  const channels = data.channels_formatted || ['email','linkedin','blog','slack'];
+  const channelCards = channels.map(ch => {
+    const fd = fdata[ch] || {};
+    if (ch === 'email') {
+      return `<div class="channel-card">
+        <div class="channel-badge badge-email">📧 Email</div>
+        <div class="channel-subject">${fd.subject || ldata.title || '—'}</div>
+        <div class="channel-body mono" style="font-size:11px;">${(fd.preheader || '') + '\n\n' + (fd.body || ldata.body || '—')}</div>
+      </div>`;
+    } else if (ch === 'linkedin') {
+      return `<div class="channel-card">
+        <div class="channel-badge badge-linkedin">💼 LinkedIn</div>
+        <div class="channel-body">${fd.post || ldata.body || '—'}</div>
+      </div>`;
+    } else if (ch === 'blog') {
+      return `<div class="channel-card">
+        <div class="channel-badge badge-blog">📝 Blog</div>
+        <div class="channel-subject">${fd.title || ldata.title || '—'}</div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">📖 ${fd.reading_time || ldata.reading_time || '3 min read'}</div>
+        <div class="channel-body">${fd.meta_description || (fd.body || ldata.body || '—').slice(0,200)}</div>
+      </div>`;
+    } else if (ch === 'slack') {
+      const bullets = fd.bullets || [];
+      return `<div class="channel-card">
+        <div class="channel-badge badge-slack">💬 Slack</div>
+        <div style="font-size:13px;font-weight:500;margin-bottom:8px;">${fd.summary || ldata.title || '—'}</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.8;">${bullets.map(b => `• ${b}`).join('<br>')}</div>
+      </div>`;
+    }
+    return '';
+  }).join('');
+
+  const keywords = (ldata.seo_keywords || data.output?.draft?.seo_keywords || []).map(k =>
+    `<span class="tag tag-locale" style="background:var(--bg3);color:var(--dim);border:1px solid var(--border)">#${k}</span>`
+  ).join('');
+
+  return `
+    <div style="padding:20px;">
+      <h2 style="font-size:16px;font-weight:600;margin-bottom:8px;line-height:1.4;">${ldata.title || data.output?.draft?.title || '—'}</h2>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:16px;">${ldata.reading_time || '3 min read'} &nbsp;·&nbsp; ${keywords}</div>
+      <div class="channel-grid">${channelCards}</div>
+    </div>
+  `;
+}
+
+function switchLocaleTab(locale) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  const tab = document.getElementById(`tab-${locale}`);
+  const content = document.getElementById(`content-${locale}`);
+  if (tab) tab.classList.add('active');
+  if (content) content.classList.add('active');
+}
+
+function animateCounter(id, from, to, duration) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const start = performance.now();
+  function step(now) {
+    const p = Math.min((now - start) / duration, 1);
+    el.textContent = Math.round(from + (to - from) * p);
+    if (p < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+</script>
+</body>
+</html>

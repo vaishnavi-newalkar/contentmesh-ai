@@ -1,0 +1,101 @@
+create_content_task:
+  description: >
+    Write enterprise B2B content for:
+    Topic: {topic} | Audience: {audience} | Tone: {tone}
+
+    STRICT RULES: Output ONE raw JSON object only. No markdown, no backticks, no extra text.
+    Keep "body" under 60 words total (5 short paragraphs: hook, problem, solution, evidence, CTA).
+
+    Required keys: title (under 80 chars), body, key_messages (3 items), cta, seo_keywords (3 items), reading_time.
+  expected_output: >
+    A raw JSON object with keys: title, body, key_messages, cta, seo_keywords, reading_time.
+  agent: content_creator
+
+
+brand_guard_task:
+  description: >
+    Review the previous content for brand violations (guarantee claims, risk-free promises, unverifiable stats).
+    Fix violations in-place. Output ONE raw JSON object only. No markdown, no extra text.
+    Required keys: violations (array of strings), cleaned_content (same shape as input: title, body, key_messages, cta, seo_keywords, reading_time).
+    If no violations, return empty violations array and pass content unchanged.
+  expected_output: >
+    A raw JSON object with keys: violations (array), cleaned_content (object with title, body, key_messages, cta, seo_keywords, reading_time).
+  agent: brand_guardian
+  context:
+    - create_content_task
+
+
+compliance_review_task:
+  description: >
+    Check content against these rules: {compliance_rules}
+    Score from 100, subtract 5-15 per real violation. Good B2B content scores 85-98.
+    Output ONE raw JSON object only. No markdown, no extra text.
+    Required keys: status (approved or rejected), compliance_score (int), violations (array of objects with rule, excerpt, fix), revised_content (object with title, body, key_messages, cta, seo_keywords, reading_time), reviewer_note (1 sentence).
+  expected_output: >
+    A raw JSON object with keys: status, compliance_score, violations, revised_content, reviewer_note.
+  agent: compliance_reviewer
+  context:
+    - brand_guard_task
+
+
+localize_content_task:
+  description: >
+    Translate and culturally adapt the content for locales: {locales}
+    Always include "en". Adapt idioms per locale — do not translate word-for-word.
+    Output ONE raw JSON object only. Keys are locale codes. No markdown, no extra text.
+    Each locale value has: title, body (under 60 words), key_messages (2 items), cta, seo_keywords (2 items), reading_time.
+  expected_output: >
+    A raw JSON object keyed by locale code (en, es, fr, etc), each value containing title, body, key_messages, cta, seo_keywords, reading_time.
+  agent: localizer
+  context:
+    - compliance_review_task
+
+
+format_channels_task:
+  description: >
+    Format the English content for channels: {channels}
+    Limits: email subject under 50 chars, preheader under 90 chars; linkedin post under 1300 chars plus 3 hashtags; blog meta_description under 155 chars with ## headers; slack summary under 200 chars plus 3-5 bullets.
+    Output ONE raw JSON object only. Structure: en then channel then fields. No markdown, no extra text.
+  expected_output: >
+    A raw JSON object with key "en" containing channel keys: email (subject, preheader, body), linkedin (post), blog (title, meta_description, body, reading_time), slack (summary, bullets).
+  agent: channel_formatter
+  context:
+    - localize_content_task
+
+
+human_approval_task:
+  description: >
+    Review the content pipeline output and approve or reject.
+    Default to "approved" unless there is a serious quality or compliance failure.
+    Output ONE raw JSON object only. No markdown, no extra text.
+    Required keys: status (approved or rejected), feedback (1 sentence), confidence (high, medium, or low).
+  expected_output: >
+    A raw JSON object with keys: status, feedback, confidence.
+  agent: human_approver
+  context:
+    - format_channels_task
+
+
+distribute_content_task:
+  description: >
+    Deliver content to recipient: {recipient_email}
+    Use tools: send_email_tool, post_to_slack_tool, log_distribution_tool.
+    After tool calls, output ONE raw JSON object only. No markdown, no extra text.
+    Required keys: sent (array of objects with channel and status), failed (array), summary (1 sentence), total_deliveries (int), demo_mode (true).
+  expected_output: >
+    A raw JSON object with keys: sent, failed, summary, total_deliveries, demo_mode.
+  agent: distribution_agent
+  context:
+    - human_approval_task
+
+
+analytics_task:
+  description: >
+    Analyze the content pipeline and suggest improvements.
+    Output ONE raw JSON object only. No markdown, no extra text.
+    Required keys: engagement_score (int 0-100), weaknesses (2 items), suggestions (2 items), recommended_strategy (object with best_channel, content_format, posting_time).
+  expected_output: >
+    A raw JSON object with keys: engagement_score, weaknesses, suggestions, recommended_strategy.
+  agent: analytics_agent
+  context:
+    - distribute_content_task

@@ -1,0 +1,38 @@
+# 🔐 Environment variables
+.env
+.env.*
+
+# 🐍 Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+
+# 📦 Virtual environment
+venv/
+env/
+.venv/
+
+# 📁 Logs & outputs
+*.log
+output.json
+
+# 🧠 CrewAI / training artifacts
+*.pkl
+*.db
+
+# 🖥️ OS files
+.DS_Store
+Thumbs.db
+
+# 🧪 IDE files
+.vscode/
+.idea/
+
+# 🔥 Node (if frontend later)
+node_modules/
+
+# 🚫 Secrets
+secrets.json
+*.key
